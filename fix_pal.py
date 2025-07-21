@@ -8,7 +8,7 @@ Slow down a Matroska-contained video to correct for PAL speedup.
 
 
 __author__ = "Jack Fisher"
-__credits__ = ["Jack Fisher", "James Ainsley", "BlackScreen"]
+__credits__ = ["Jack Fisher", "James Ainsley", "BlackScreen", "vwspeedracer"]
 __version__ = "2.0"
 
 
@@ -18,7 +18,6 @@ import subprocess
 import sys
 import tempfile
 
-from fractions import Fraction
 from os.path import realpath
 from pathlib import Path
 from shutil import which
@@ -26,7 +25,7 @@ from shutil import which
 
 # Modify this if the correction factor needs tweaking. It's treated as a constant
 # throughout.
-CORRECTION_FACTOR = "25/24"
+CORRECTION_FACTOR = 25/23.976
 
 
 # dict of tools that this script calls. The `None` values are replaced at runtime with
@@ -132,7 +131,7 @@ def adjust_timestamp(matchobj):
     mins = int(old_timestamp[3:5])
     secs = float(old_timestamp[6:])
     old_total_secs = (3600 * hrs) + (60 * mins) + secs
-    new_total_secs = Fraction(CORRECTION_FACTOR) * old_total_secs
+    new_total_secs = CORRECTION_FACTOR * old_total_secs
     new_timestamp = "{:02.0f}:{:02.0f}:{:02.9f}".format(
         new_total_secs // 3600, new_total_secs % 3600 // 60, new_total_secs % 60
     )
@@ -210,8 +209,8 @@ def fix_audio(infile, outfile):
 
     Copy video, subtitles, chapters exactly as they are in the input file.
     """
-    audio_factor = 1 / Fraction(CORRECTION_FACTOR)
     sample_rate = get_audio_sample_rate(infile)
+    audio_factor = 1 / CORRECTION_FACTOR
 
     cmd = [
         tools["ffmpeg"],
@@ -221,11 +220,17 @@ def fix_audio(infile, outfile):
         "-map",
         "0",
         "-filter:a",
-        f"asetrate={sample_rate}*{audio_factor}",
+        f"atempo={audio_factor}",
         "-c:v",
         "copy",
         "-c:s",
         "copy",
+        "-ar",
+        sample_rate,
+        "-c:a",
+        "libvorbis",
+        "-q:a",
+        "6", 
         "-max_interleave_delta",
         "0",
         outfile,
